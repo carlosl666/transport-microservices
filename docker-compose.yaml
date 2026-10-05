@@ -1,0 +1,114 @@
+version: '3.9'
+
+services:
+
+  # ---------- BASE DE DATOS ----------
+  postgres:
+    image: postgres:16-alpine
+    container_name: transport-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 12345
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db:/docker-entrypoint-initdb.d
+    networks:
+      - transport-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------- DRIVER SERVICE ----------
+  microservice-drivers:
+    build:
+      context: .
+      dockerfile: microservice-drivers/Dockerfile
+    container_name: microservice-drivers
+    ports:
+      - "8081:8081"
+    environment:
+      DB_HOST: postgres
+      DB_USER: postgres
+      DB_PASS: 12345
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - transport-net
+
+  # ---------- ORDER SERVICE ----------
+  microservice-orders:
+    build:
+      context: .
+      dockerfile: microservice-orders/Dockerfile
+    container_name: microservice-orders
+    ports:
+      - "8082:8082"
+    environment:
+      DB_HOST: postgres
+      DB_USER: postgres
+      DB_PASS: 12345
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - transport-net
+
+  # ---------- ASSIGNMENT SERVICE ----------
+  microservice-assignments:
+    build:
+      context: .
+      dockerfile: microservice-assignments/Dockerfile
+    container_name: microservice-assignments
+    ports:
+      - "8083:8083"
+    environment:
+      DB_HOST: postgres
+      DB_USER: postgres
+      DB_PASS: 12345
+      ORDER_SERVICE_URL: http://microservice-orders:8082
+      DRIVER_SERVICE_URL: http://microservice-drivers:8081
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - assignment_files:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      microservice-orders:
+        condition: service_started
+      microservice-drivers:
+        condition: service_started
+    networks:
+      - transport-net
+
+  # ---------- API GATEWAY ----------
+  microservice-api-gateway:
+    build:
+      context: .
+      dockerfile: microservice-api-gateway/Dockerfile
+    container_name: microservice-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      DRIVER_SERVICE_URL: http://microservice-drivers:8081
+      ORDER_SERVICE_URL: http://microservice-orders:8082
+      ASSIGNMENT_SERVICE_URL: http://microservice-assignments:8083
+      JWT_SECRET: mySecretKeyEvaluacionApi2026SecureEnoughForHS256
+    depends_on:
+      - microservice-drivers
+      - microservice-orders
+      - microservice-assignments
+    networks:
+      - transport-net
+
+networks:
+  transport-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  assignment_files:

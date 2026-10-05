@@ -1,0 +1,5 @@
+CREATE DATABASE driver_db;
+CREATE DATABASE order_db;
+
+GRANT ALL PRIVILEGES ON DATABASE driver_db TO postgres;
+GRANT ALL PRIVILEGES ON DATABASE order_db TO postgres;
