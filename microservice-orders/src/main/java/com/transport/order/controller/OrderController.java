@@ -54,6 +54,7 @@ public class OrderController {
     }
 
     @PostMapping("/{id}/assign-driver")
+    @Operation(summary = "Asignar conductor (endpoint interno para microservice-assignments)")
     public ResponseEntity<OrderResponse> assignDriver(@PathVariable UUID id,
                                                       @Valid @RequestBody AssignDriverRequest request,
                                                       BindingResult result) {
